@@ -1,6 +1,61 @@
-# Documentación de Funciones - Red Neuronal para Clasificación de Frutas
+# Red Neuronal para Clasificación de Frutas
 
-## Importaciones y Configuración Inicial
+Este proyecto implementa una red neuronal multicapa (MLP) para clasificar frutas como maduras o no maduras basándose en características de color y firmeza.
+
+## Características
+
+- **Dataset**: 1000 muestras de frutas sintéticas con características color, firmness y etiqueta (1=madura, 0=no madura)
+- **Preprocesamiento**: Escalado de características usando StandardScaler
+- **División de datos**: 75% entrenamiento, 25% prueba
+- **Arquitectura MLP**:
+  - Capa oculta: 10 neuronas con activación ReLU
+  - Capa de salida: 1 neurona con activación sigmoide
+- **Optimización**: Adam optimizer con función de pérdida binary_crossentropy
+- **Visualizaciones**: Gráficos de dispersión con frontera de decisión y distribución de clases
+- **Predicciones**: Sistema para clasificar frutas nuevas sin etiquetas
+
+## Instalación
+
+1. Instalar las dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Uso
+
+Ejecutar el script principal:
+
+```bash
+python red_neuronal_frutas.py
+```
+
+## Salidas
+
+El programa genera:
+
+1. **Métricas de evaluación**: Accuracy y matriz de confusión
+2. **Gráfico de barras**: Distribución de frutas maduras vs no maduras
+3. **Gráfico de dispersión**: Datos con frontera de decisión (datos originales)
+4. **Gráfico de dispersión**: Datos con frontera de decisión (datos escalados)
+5. **Historial de entrenamiento**: Curvas de accuracy y pérdida
+6. **Predicciones de frutas nuevas**: Clasificación de datos sin etiquetas
+7. **Gráfico de predicciones**: Visualización de frutas nuevas clasificadas
+
+## Archivos
+
+- `red_neuronal_frutas.py`: Script principal con toda la implementación
+- `frutas_sinteticas_1000.csv`: Dataset de frutas con 1000 muestras para entrenamiento
+- `frutas_nuevas.csv`: Dataset de frutas nuevas para predicción (sin etiquetas)
+- `frutas_validacion.csv`: Dataset de validación con etiquetas reales para verificar predicciones
+- `requirements.txt`: Dependencias del proyecto
+- `README.md`: Este archivo de documentación
+
+---
+
+## Documentación Completa de Funciones
+
+### Importaciones y Configuración Inicial
 
 ```python
 import pandas as pd
@@ -498,6 +553,423 @@ def main():
 - **Reutilizable**: Las funciones se pueden usar independientemente
 - **Mantenible**: Fácil de modificar y depurar
 - **Legible**: El flujo es claro y fácil de seguir
+
+---
+
+### 10. Función `procesar_frutas_nuevas(model, scaler)`
+
+```python
+def procesar_frutas_nuevas(model, scaler):
+    """Carga, procesa y hace predicciones sobre frutas nuevas sin etiquetas"""
+    print("\n" + "="*50)
+    print("PROCESANDO FRUTAS NUEVAS")
+    print("="*50)
+
+    try:
+        # Cargar frutas nuevas
+        print("Cargando frutas nuevas...")
+        frutas_nuevas = pd.read_csv('frutas_nuevas.csv')
+        print(f"Frutas nuevas cargadas: {frutas_nuevas.shape[0]} muestras")
+
+        # Verificar columnas
+        if not all(col in frutas_nuevas.columns for col in ['color', 'firmness']):
+            print("❌ Error: El archivo debe contener columnas 'color' y 'firmness'")
+            return None
+
+        # Extraer características
+        X_nuevas = frutas_nuevas[['color', 'firmness']].values
+        print(f"Características extraídas: {X_nuevas.shape}")
+
+        # Escalar usando el mismo scaler entrenado
+        print("Escalando características con el scaler entrenado...")
+        X_nuevas_scaled = scaler.transform(X_nuevas)
+
+        # Hacer predicciones
+        print("Realizando predicciones...")
+        predicciones_proba = model.predict(X_nuevas_scaled, verbose=0)
+        predicciones = (predicciones_proba > 0.5).astype(int).flatten()
+
+        # Agregar predicciones al DataFrame
+        frutas_nuevas['prediccion'] = predicciones
+        frutas_nuevas['probabilidad'] = predicciones_proba.flatten()
+
+        # Mostrar resultados
+        print("\nPrimeras 10 frutas nuevas con predicciones:")
+        print(frutas_nuevas.head(10))
+
+        # Estadísticas de predicciones
+        conteo_predicciones = frutas_nuevas['prediccion'].value_counts()
+        print(f"\nResumen de predicciones:")
+        print(f"Frutas predichas como No Maduras (0): {conteo_predicciones.get(0, 0)}")
+        print(f"Frutas predichas como Maduras (1): {conteo_predicciones.get(1, 0)}")
+
+        return frutas_nuevas, X_nuevas, predicciones
+
+    except FileNotFoundError:
+        print("❌ Error: No se encontró el archivo 'frutas_nuevas.csv'")
+        print("💡 Creando archivo de ejemplo...")
+        return None
+    except Exception as e:
+        print(f"❌ Error al procesar frutas nuevas: {e}")
+        return None
+```
+
+**¿Para qué sirve?**
+
+- Carga frutas nuevas sin etiquetas de madurez
+- Aplica el mismo preprocesamiento usado en entrenamiento
+- Hace predicciones usando el modelo ya entrenado
+- Genera estadísticas de las predicciones
+
+**¿Cómo funciona?**
+
+1. **Carga de datos**: Lee el archivo `frutas_nuevas.csv` con columnas 'color' y 'firmness'
+2. **Verificación**: Confirma que las columnas necesarias estén presentes
+3. **Preprocesamiento**: Usa el mismo StandardScaler entrenado para escalar las características
+4. **Predicciones**: Aplica el modelo entrenado para obtener probabilidades y clases
+5. **Resultados**: Agrega predicciones y probabilidades al DataFrame original
+6. **Estadísticas**: Muestra resumen de las predicciones realizadas
+
+**¿Por qué es importante usar el mismo scaler?**
+
+- **Consistencia**: Mantiene la misma escala que se usó en entrenamiento
+- **Precisión**: Evita errores de predicción por diferencias de escala
+- **Generalización**: Asegura que el modelo funcione correctamente con datos nuevos
+
+---
+
+### 11. Función `grafico_frutas_nuevas(frutas_nuevas, X_nuevas, predicciones)`
+
+```python
+def grafico_frutas_nuevas(frutas_nuevas, X_nuevas, predicciones):
+    """Genera gráfico de dispersión de frutas nuevas con predicciones"""
+    plt.figure(figsize=(12, 8))
+
+    # Definir colores para las predicciones
+    colores = ['#ff4444', '#44ff44']  # Rojo para No Madura, Verde para Madura
+    etiquetas = ['No Madura', 'Madura']
+
+    # Crear el gráfico de dispersión
+    scatter = plt.scatter(X_nuevas[:, 0], X_nuevas[:, 1],
+                         c=predicciones,
+                         cmap='RdYlGn',
+                         edgecolors='black',
+                         s=100,
+                         alpha=0.8)
+
+    plt.xlabel('Color')
+    plt.ylabel('Firmeza')
+    plt.title('Predicciones de Madurez - Frutas Nuevas')
+
+    # Crear leyenda personalizada
+    handles = [plt.scatter([], [], c=colores[i], s=100, edgecolors='black',
+                          alpha=0.8, label=etiquetas[i])
+               for i in range(len(etiquetas))]
+    plt.legend(handles=handles, title='Predicción', loc='upper right')
+
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    print("✅ Gráfico de frutas nuevas generado")
+```
+
+**¿Para qué sirve?**
+
+- Visualiza las frutas nuevas en un diagrama de dispersión
+- Muestra las predicciones usando colores (rojo=no madura, verde=madura)
+- Permite interpretar visualmente los resultados del modelo
+
+**¿Cómo funciona?**
+
+1. **Configuración**: Define colores específicos para cada clase predicha
+2. **Gráfico**: Crea un scatter plot con colores según las predicciones
+3. **Leyenda**: Incluye una leyenda clara con los colores y sus significados
+4. **Formato**: Aplica grid, etiquetas y título para mejor legibilidad
+
+**¿Por qué esta visualización?**
+
+- **Interpretación**: Facilita entender las predicciones del modelo
+- **Validación**: Permite detectar patrones o anomalías en las predicciones
+- **Comunicación**: Hace más fácil explicar los resultados a otros
+
+---
+
+## Nuevas Funcionalidades: Predicción de Frutas Nuevas
+
+### ¿Por qué se implementó esta funcionalidad?
+
+**1. Aplicación Práctica del Modelo:**
+
+- **Propósito**: Demostrar cómo usar un modelo entrenado en datos reales
+- **Utilidad**: Clasificar frutas nuevas sin necesidad de etiquetas manuales
+- **Escalabilidad**: Procesar múltiples muestras de forma automática
+
+**2. Validación del Sistema:**
+
+- **Consistencia**: Verificar que el modelo funciona con datos no vistos
+- **Robustez**: Probar la generalización del modelo entrenado
+- **Calidad**: Evaluar si las predicciones son razonables
+
+**3. Casos de Uso Reales:**
+
+- **Industria alimentaria**: Clasificación automática de frutas en producción
+- **Control de calidad**: Detección de madurez en tiempo real
+- **Investigación**: Análisis de nuevas variedades de frutas
+
+### ¿Cómo funciona el flujo de predicción?
+
+**Paso 1: Carga de Datos Nuevos**
+
+```
+frutas_nuevas.csv → DataFrame con columnas [color, firmness]
+```
+
+**Paso 2: Preprocesamiento Consistente**
+
+```
+Datos originales → StandardScaler entrenado → Datos escalados
+```
+
+**Paso 3: Predicción**
+
+```
+Datos escalados → Modelo entrenado → Probabilidades → Clases (0/1)
+```
+
+**Paso 4: Visualización**
+
+```
+Datos + Predicciones → Gráfico de dispersión colorizado
+```
+
+### Estructura del Archivo `frutas_nuevas.csv`
+
+El archivo debe contener exactamente estas columnas:
+
+```csv
+color,firmness
+2.1,3.2
+4.5,4.8
+1.8,2.5
+...
+```
+
+**Requisitos:**
+
+- **Columnas**: `color` y `firmness` (exactamente estos nombres)
+- **Sin columna `label`**: Las etiquetas se generan automáticamente
+- **Formato numérico**: Valores decimales para las características
+- **Sin encabezados adicionales**: Solo las columnas mencionadas
+
+### Interpretación de Resultados
+
+**Predicciones:**
+
+- **0 (No Madura)**: Fruta predicha como no madura (color rojo en gráfico)
+- **1 (Madura)**: Fruta predicha como madura (color verde en gráfico)
+
+**Probabilidades:**
+
+- **Valor cercano a 0**: Alta confianza en "No Madura"
+- **Valor cercano a 1**: Alta confianza en "Madura"
+- **Valor cercano a 0.5**: Incertidumbre del modelo
+
+**Estadísticas mostradas:**
+
+- Conteo de frutas predichas como maduras vs no maduras
+- Distribución de predicciones en el dataset
+- Primera vista de datos con predicciones
+
+### Ventajas de esta Implementación
+
+**1. Reutilización del Modelo:**
+
+- No requiere reentrenar el modelo
+- Mantiene la consistencia del preprocesamiento
+- Aprovecha el conocimiento ya aprendido
+
+**2. Escalabilidad:**
+
+- Procesa cualquier cantidad de frutas nuevas
+- Automatiza la clasificación
+- Reduce el trabajo manual
+
+**3. Interpretabilidad:**
+
+- Visualización clara de resultados
+- Estadísticas descriptivas
+- Probabilidades de confianza
+
+**4. Robustez:**
+
+- Manejo de errores (archivo no encontrado, columnas faltantes)
+- Validación de datos de entrada
+- Mensajes informativos para el usuario
+
+---
+
+## ¿Cómo Saber si las Predicciones de Frutas Nuevas son Correctas?
+
+### Problema Fundamental
+
+**La pregunta clave**: Cuando el modelo predice la madurez de frutas nuevas, ¿cómo sabemos si está bien?
+
+**La respuesta**: No podemos saberlo con certeza absoluta sin etiquetas reales, pero podemos usar varias estrategias para evaluar la confiabilidad.
+
+### Estrategias de Validación Implementadas
+
+#### 1. **Validación con Dataset de Prueba**
+
+**Función**: `validar_predicciones_frutas_nuevas()`
+
+**¿Cómo funciona?**
+
+- Usa el archivo `frutas_validacion.csv` con etiquetas reales
+- Aplica el mismo modelo a datos con etiquetas conocidas
+- Compara predicciones vs etiquetas reales
+- Calcula accuracy, matriz de confusión y análisis detallado
+
+**¿Qué nos dice?**
+
+- **Accuracy alto (>0.8)**: El modelo es confiable
+- **Accuracy bajo (<0.6)**: El modelo tiene problemas
+- **Casos de error**: Qué tipos de frutas se clasifican mal
+
+```python
+# Ejemplo de salida:
+📊 RESULTADOS DE VALIDACIÓN:
+Accuracy en frutas nuevas: 0.9000
+Matriz de confusión:
+[[8 1]
+ [1 9]]
+
+✅ PERFECTO: 18/20 predicciones correctas!
+```
+
+#### 2. **Análisis de Casos Extremos**
+
+**Función**: `analizar_casos_extremos()`
+
+**¿Cómo funciona?**
+
+- Prueba casos con valores conocidos
+- Valida comportamiento en casos obvios
+- Detecta inconsistencias lógicas
+
+**Casos de prueba:**
+
+- `[1.0, 1.0]`: Claramente no madura
+- `[8.0, 8.0]`: Claramente madura
+- `[7.0, 2.0]`: Caso contradictorio (color alto, firmeza baja)
+- `[2.0, 7.0]`: Caso contradictorio (color bajo, firmeza alta)
+
+**¿Qué nos dice?**
+
+- **Casos obvios correctos**: El modelo entiende patrones básicos
+- **Casos contradictorios**: Cómo maneja situaciones ambiguas
+
+#### 3. **Análisis de Confianza**
+
+**¿Cómo funciona?**
+
+- Examina las probabilidades de predicción
+- Identifica casos con baja confianza (0.3 < prob < 0.7)
+- Señala predicciones inciertas
+
+**¿Qué nos dice?**
+
+- **Alta confianza**: Predicciones más confiables
+- **Baja confianza**: Casos que requieren revisión manual
+- **Patrones de incertidumbre**: Áreas donde el modelo duda
+
+#### 4. **Visualización de Frontera de Decisión**
+
+**Función**: `grafico_validacion_con_frontera()`
+
+**¿Cómo funciona?**
+
+- Muestra etiquetas reales vs predicciones
+- Superpone la frontera de decisión aprendida
+- Permite comparación visual directa
+
+**¿Qué nos dice?**
+
+- **Coincidencia visual**: Si las predicciones siguen patrones lógicos
+- **Errores obvios**: Casos donde el modelo claramente se equivoca
+- **Consistencia**: Si la frontera de decisión es razonable
+
+### Interpretación de Resultados
+
+#### ✅ **Señales de Predicciones Confiables:**
+
+1. **Accuracy de validación > 0.8**
+
+   - El modelo funciona bien en datos conocidos
+   - Alta probabilidad de funcionar en datos nuevos
+
+2. **Casos extremos correctos**
+
+   - Frutas obviamente maduras → predicción "madura"
+   - Frutas obviamente no maduras → predicción "no madura"
+
+3. **Alta confianza en predicciones**
+
+   - Probabilidades cercanas a 0 o 1
+   - Pocas predicciones inciertas
+
+4. **Frontera de decisión lógica**
+   - Separación clara entre clases
+   - Sin patrones extraños o contradictorios
+
+#### ⚠️ **Señales de Problemas:**
+
+1. **Accuracy de validación < 0.6**
+
+   - El modelo no generaliza bien
+   - Necesita más entrenamiento o datos
+
+2. **Casos extremos incorrectos**
+
+   - Frutas obvias clasificadas mal
+   - Indica problemas fundamentales
+
+3. **Baja confianza generalizada**
+
+   - Muchas predicciones inciertas
+   - Modelo no está seguro de sus decisiones
+
+4. **Frontera de decisión extraña**
+   - Patrones ilógicos o contradictorios
+   - Posible sobreajuste o datos de mala calidad
+
+### Recomendaciones para Uso en Producción
+
+#### **Para Alta Confiabilidad:**
+
+1. **Validar con dataset de prueba** antes de usar en producción
+2. **Monitorear accuracy** en datos reales
+3. **Revisar manualmente** casos de baja confianza
+4. **Actualizar modelo** periódicamente con nuevos datos
+
+#### **Para Casos Críticos:**
+
+1. **Usar umbral de confianza** más estricto (>0.8 para aceptar predicción)
+2. **Implementar revisión humana** para predicciones inciertas
+3. **Mantener logs** de todas las predicciones
+4. **Establecer alertas** para accuracy descendente
+
+### Conclusión
+
+**¿Cómo saber si las predicciones son correctas?**
+
+1. **Validar con datos conocidos** (accuracy > 0.8)
+2. **Probar casos extremos** (comportamiento lógico)
+3. **Analizar confianza** (pocas predicciones inciertas)
+4. **Visualizar resultados** (frontera de decisión lógica)
+5. **Monitorear continuamente** (validación en producción)
+
+**La clave**: No podemos estar 100% seguros, pero podemos estar **razonablemente confiados** basándonos en evidencia múltiple y validación sistemática.
 
 ---
 

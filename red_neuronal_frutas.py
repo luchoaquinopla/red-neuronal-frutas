@@ -197,6 +197,257 @@ def grafico_historial_entrenamiento(history):
     plt.tight_layout()
     plt.show()
 
+def procesar_frutas_nuevas(model, scaler):
+    """Carga, procesa y hace predicciones sobre frutas nuevas sin etiquetas"""
+    print("\n" + "="*50)
+    print("PROCESANDO FRUTAS NUEVAS")
+    print("="*50)
+    
+    try:
+        # Cargar frutas nuevas
+        print("Cargando frutas nuevas...")
+        frutas_nuevas = pd.read_csv('frutas_nuevas.csv')
+        print(f"Frutas nuevas cargadas: {frutas_nuevas.shape[0]} muestras")
+        
+        # Verificar columnas
+        if not all(col in frutas_nuevas.columns for col in ['color', 'firmness']):
+            print("❌ Error: El archivo debe contener columnas 'color' y 'firmness'")
+            return None
+        
+        # Extraer características
+        X_nuevas = frutas_nuevas[['color', 'firmness']].values
+        print(f"Características extraídas: {X_nuevas.shape}")
+        
+        # Escalar usando el mismo scaler entrenado
+        print("Escalando características con el scaler entrenado...")
+        X_nuevas_scaled = scaler.transform(X_nuevas)
+        
+        # Hacer predicciones
+        print("Realizando predicciones...")
+        predicciones_proba = model.predict(X_nuevas_scaled, verbose=0)
+        predicciones = (predicciones_proba > 0.5).astype(int).flatten()
+        
+        # Agregar predicciones al DataFrame
+        frutas_nuevas['prediccion'] = predicciones
+        frutas_nuevas['probabilidad'] = predicciones_proba.flatten()
+        
+        # Mostrar resultados
+        print("\nPrimeras 10 frutas nuevas con predicciones:")
+        print(frutas_nuevas.head(10))
+        
+        # Estadísticas de predicciones
+        conteo_predicciones = frutas_nuevas['prediccion'].value_counts()
+        print(f"\nResumen de predicciones:")
+        print(f"Frutas predichas como No Maduras (0): {conteo_predicciones.get(0, 0)}")
+        print(f"Frutas predichas como Maduras (1): {conteo_predicciones.get(1, 0)}")
+        
+        return frutas_nuevas, X_nuevas, predicciones
+        
+    except FileNotFoundError:
+        print("❌ Error: No se encontró el archivo 'frutas_nuevas.csv'")
+        print("💡 Creando archivo de ejemplo...")
+        return None
+    except Exception as e:
+        print(f"❌ Error al procesar frutas nuevas: {e}")
+        return None
+
+def grafico_frutas_nuevas(frutas_nuevas, X_nuevas, predicciones):
+    """Genera gráfico de dispersión de frutas nuevas con predicciones"""
+    plt.figure(figsize=(12, 8))
+    
+    # Definir colores para las predicciones
+    colores = ['#ff4444', '#44ff44']  # Rojo para No Madura, Verde para Madura
+    etiquetas = ['No Madura', 'Madura']
+    
+    # Crear el gráfico de dispersión
+    scatter = plt.scatter(X_nuevas[:, 0], X_nuevas[:, 1], 
+                         c=predicciones, 
+                         cmap='RdYlGn',
+                         edgecolors='black', 
+                         s=100, 
+                         alpha=0.8)
+    
+    plt.xlabel('Color')
+    plt.ylabel('Firmeza')
+    plt.title('Predicciones de Madurez - Frutas Nuevas')
+    
+    # Crear leyenda personalizada
+    handles = [plt.scatter([], [], c=colores[i], s=100, edgecolors='black', 
+                          alpha=0.8, label=etiquetas[i]) 
+               for i in range(len(etiquetas))]
+    plt.legend(handles=handles, title='Predicción', loc='upper right')
+    
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+    
+    print("✅ Gráfico de frutas nuevas generado")
+
+def validar_predicciones_frutas_nuevas(model, scaler):
+    """Valida las predicciones usando un dataset con etiquetas reales"""
+    print("\n" + "="*50)
+    print("VALIDACIÓN DE PREDICCIONES")
+    print("="*50)
+    
+    try:
+        # Cargar dataset de validación con etiquetas reales
+        print("Cargando dataset de validación con etiquetas reales...")
+        frutas_validacion = pd.read_csv('frutas_validacion.csv')
+        print(f"Dataset de validación cargado: {frutas_validacion.shape[0]} muestras")
+        
+        # Separar características y etiquetas reales
+        X_val = frutas_validacion[['color', 'firmness']].values
+        y_real = frutas_validacion['label'].values
+        
+        # Escalar características
+        X_val_scaled = scaler.transform(X_val)
+        
+        # Hacer predicciones
+        predicciones_proba = model.predict(X_val_scaled, verbose=0)
+        predicciones = (predicciones_proba > 0.5).astype(int).flatten()
+        
+        # Calcular métricas de validación
+        accuracy = accuracy_score(y_real, predicciones)
+        cm = confusion_matrix(y_real, predicciones)
+        
+        print(f"\n📊 RESULTADOS DE VALIDACIÓN:")
+        print(f"Accuracy en frutas nuevas: {accuracy:.4f}")
+        print(f"Matriz de confusión:")
+        print(cm)
+        
+        # Análisis detallado
+        print(f"\n📋 ANÁLISIS DETALLADO:")
+        
+        # Comparar predicciones vs reales
+        df_comparacion = pd.DataFrame({
+            'color': frutas_validacion['color'],
+            'firmness': frutas_validacion['firmness'],
+            'real': y_real,
+            'prediccion': predicciones,
+            'probabilidad': predicciones_proba.flatten(),
+            'correcto': y_real == predicciones
+        })
+        
+        print("\nPrimeras 10 comparaciones:")
+        print(df_comparacion.head(10))
+        
+        # Estadísticas de errores
+        errores = df_comparacion[~df_comparacion['correcto']]
+        if len(errores) > 0:
+            print(f"\n❌ ERRORES DE PREDICCIÓN ({len(errores)} errores):")
+            print(errores)
+        else:
+            print(f"\n✅ PERFECTO: Todas las predicciones fueron correctas!")
+        
+        # Análisis de confianza
+        print(f"\n🎯 ANÁLISIS DE CONFIANZA:")
+        prob_baja_confianza = df_comparacion[
+            (df_comparacion['probabilidad'] > 0.3) & 
+            (df_comparacion['probabilidad'] < 0.7)
+        ]
+        
+        if len(prob_baja_confianza) > 0:
+            print(f"Predicciones con baja confianza (probabilidad entre 0.3-0.7): {len(prob_baja_confianza)}")
+            print(prob_baja_confianza)
+        else:
+            print("✅ Todas las predicciones tienen alta confianza")
+        
+        return df_comparacion, accuracy
+        
+    except FileNotFoundError:
+        print("❌ Error: No se encontró 'frutas_validacion.csv'")
+        print("💡 Este archivo contiene las etiquetas reales para validar las predicciones")
+        return None, None
+    except Exception as e:
+        print(f"❌ Error en validación: {e}")
+        return None, None
+
+def analizar_casos_extremos(model, scaler):
+    """Analiza casos extremos para validar el comportamiento del modelo"""
+    print("\n" + "="*50)
+    print("ANÁLISIS DE CASOS EXTREMOS")
+    print("="*50)
+    
+    # Crear casos extremos conocidos
+    casos_extremos = {
+        'Muy No Madura': [1.0, 1.0],      # Valores muy bajos
+        'Muy Madura': [8.0, 8.0],         # Valores muy altos
+        'Color Alto, Firmeza Baja': [7.0, 2.0],  # Caso contradictorio
+        'Color Bajo, Firmeza Alta': [2.0, 7.0],  # Caso contradictorio
+        'Valores Intermedios': [4.0, 4.0] # Punto medio
+    }
+    
+    print("Probando casos extremos conocidos:")
+    
+    for nombre, valores in casos_extremos.items():
+        # Escalar el caso
+        valores_escalados = scaler.transform([valores])
+        
+        # Predecir
+        prob = model.predict(valores_escalados, verbose=0)[0][0]
+        prediccion = 1 if prob > 0.5 else 0
+        
+        print(f"  {nombre}: [{valores[0]:.1f}, {valores[1]:.1f}] → "
+              f"Predicción: {'Madura' if prediccion else 'No Madura'} "
+              f"(prob: {prob:.3f})")
+    
+    print("\n✅ Análisis de casos extremos completado")
+
+def grafico_validacion_con_frontera(X_val, y_real, predicciones, model, scaler):
+    """Genera gráfico que muestra predicciones vs reales con frontera de decisión"""
+    plt.figure(figsize=(15, 6))
+    
+    # Subplot 1: Etiquetas reales
+    plt.subplot(1, 2, 1)
+    
+    # Crear malla para frontera de decisión
+    x_min, x_max = X_val[:, 0].min() - 0.5, X_val[:, 0].max() + 0.5
+    y_min, y_max = X_val[:, 1].min() - 0.5, X_val[:, 1].max() + 0.5
+    xx, yy = np.meshgrid(np.linspace(x_min, x_max, 100),
+                         np.linspace(y_min, y_max, 100))
+    
+    # Predecir en la malla
+    mesh_points = np.c_[xx.ravel(), yy.ravel()]
+    mesh_points_scaled = scaler.transform(mesh_points)
+    Z = model.predict(mesh_points_scaled)
+    Z = Z.reshape(xx.shape)
+    
+    # Frontera de decisión
+    plt.contourf(xx, yy, Z, levels=50, alpha=0.6, cmap='RdYlBu')
+    plt.colorbar(label='Probabilidad de Madurez')
+    
+    # Puntos reales
+    scatter1 = plt.scatter(X_val[:, 0], X_val[:, 1], c=y_real, cmap='RdYlBu', 
+                          edgecolors='black', s=100, alpha=0.8)
+    plt.xlabel('Color')
+    plt.ylabel('Firmeza')
+    plt.title('Etiquetas Reales vs Frontera de Decisión')
+    plt.legend(handles=scatter1.legend_elements()[0], 
+              labels=['No Madura', 'Madura'], loc='upper right')
+    plt.grid(True, alpha=0.3)
+    
+    # Subplot 2: Predicciones
+    plt.subplot(1, 2, 2)
+    
+    # Misma frontera
+    plt.contourf(xx, yy, Z, levels=50, alpha=0.6, cmap='RdYlBu')
+    plt.colorbar(label='Probabilidad de Madurez')
+    
+    # Puntos predichos (coloreados según predicción)
+    scatter2 = plt.scatter(X_val[:, 0], X_val[:, 1], c=predicciones, cmap='RdYlBu', 
+                          edgecolors='black', s=100, alpha=0.8)
+    plt.xlabel('Color')
+    plt.ylabel('Firmeza')
+    plt.title('Predicciones vs Frontera de Decisión')
+    plt.legend(handles=scatter2.legend_elements()[0], 
+              labels=['No Madura', 'Madura'], loc='upper right')
+    plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    print("✅ Gráfico de validación con frontera generado")
+
 def main():
     """Función principal que ejecuta todo el pipeline"""
     print("="*60)
@@ -235,6 +486,25 @@ def main():
     
     # Historial de entrenamiento
     grafico_historial_entrenamiento(history)
+    
+    # 7. Procesar frutas nuevas
+    resultado_frutas_nuevas = procesar_frutas_nuevas(model, scaler)
+    if resultado_frutas_nuevas is not None:
+        frutas_nuevas, X_nuevas, predicciones = resultado_frutas_nuevas
+        grafico_frutas_nuevas(frutas_nuevas, X_nuevas, predicciones)
+    
+    # 8. Validar predicciones con dataset de prueba
+    df_validacion, accuracy_validacion = validar_predicciones_frutas_nuevas(model, scaler)
+    
+    # 9. Análisis de casos extremos
+    analizar_casos_extremos(model, scaler)
+    
+    # 10. Gráfico de validación si hay datos de validación
+    if df_validacion is not None:
+        X_val = df_validacion[['color', 'firmness']].values
+        y_real = df_validacion['real'].values
+        predicciones_val = df_validacion['prediccion'].values
+        grafico_validacion_con_frontera(X_val, y_real, predicciones_val, model, scaler)
     
     print("\n" + "="*60)
     print("ANÁLISIS COMPLETADO")
