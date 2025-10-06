@@ -1,0 +1,26 @@
+graph TD
+    A[Inicio] --> B[main]
+    B --> C[Cargar y escalar datos]
+    C --> D[dividir_datos]
+    D --> E[crear_modelo_mlp]
+    E --> F[entrenar_modelo]
+    F --> G[evaluar_modelo]
+    G --> H[Grafico distribucion clases]
+    H --> I[Dispersion y frontera original]
+    I --> J[Dispersion y frontera escalado]
+    J --> K[Historial de entrenamiento]
+    K --> L{Existe frutas_nuevas.csv}
+    L -->|Si| M[procesar_frutas_nuevas]
+    L -->|No| N[Omitir prediccion nuevas]
+    M --> O[Grafico frutas nuevas]
+    N --> P{Existe frutas_validacion.csv}
+    O --> P
+    P -->|Si| Q[validar_predicciones_frutas_nuevas]
+    P -->|No| R[Omitir validacion]
+    Q --> S[Grafico validacion y frontera]
+    R --> T[analizar_casos_extremos]
+    S --> T
+    T --> U[Imprimir accuracy final]
+    U --> V[Fin]
+
+

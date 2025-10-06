@@ -1,0 +1,24 @@
+graph TD
+    A[Iniciar modulo nuevas y validacion] --> B{Existe frutas_nuevas.csv}
+    B -->|Si| C[Cargar X_nuevas]
+    B -->|No| H[Informar ausencia y continuar]
+    C --> D[scaler.transform X_nuevas]
+    D --> E[model.predict -> proba y etiqueta]
+    E --> F[Agregar columnas prediccion y probabilidad]
+    F --> G[Graficar frutas nuevas]
+
+    G --> I{Existe frutas_validacion.csv}
+    H --> I
+    I -->|Si| J[Cargar X_val y y_real]
+    I -->|No| P[Informar ausencia y continuar]
+    J --> K[scaler.transform X_val]
+    K --> L[model.predict -> predicciones]
+    L --> M[Calcular accuracy y matriz de confusion]
+    M --> N[Armar df_comparacion y confianza]
+    N --> O[Graficar validacion y frontera]
+
+    O --> Q[Analizar casos extremos]
+    P --> Q
+    Q --> R[Fin modulo]
+
+
