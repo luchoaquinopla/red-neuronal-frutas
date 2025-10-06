@@ -30,6 +30,64 @@ Ejecutar el script principal:
 python red_neuronal_frutas.py
 ```
 
+## Diagramas de Flujo
+
+### Pipeline principal
+
+```mermaid
+flowchart TD
+    A[Inicio] --> B[main()]
+    B --> C[Cargar y escalar datos<br/>cargar_y_preprocesar_datos()]
+    C --> D[Dividir en train/test<br/>dividir_datos()]
+    D --> E[Crear modelo MLP<br/>crear_modelo_mlp()]
+    E --> F[Entrenar con EarlyStopping<br/>entrenar_modelo()]
+    F --> G[Evaluar en test<br/>evaluar_modelo()]
+    G --> H[Gráfico distribución clases<br/>grafico_distribucion_clases()]
+    H --> I[Dispersión + frontera (original)<br/>grafico_dispersion_frontera(X_original)]
+    I --> J[Dispersión + frontera (escalado)<br/>grafico_dispersion_frontera(X_escalado)]
+    J --> K[Historial de entrenamiento<br/>grafico_historial_entrenamiento()]
+    K --> L{¿frutas_nuevas.csv existe?}
+    L -- Sí --> M[procesar_frutas_nuevas()<br/>transform + predict]
+    L -- No --> N[Omitir predicción nuevas]
+    M --> O[Gráfico frutas nuevas<br/>grafico_frutas_nuevas()]
+    N --> P{¿frutas_validacion.csv existe?}
+    O --> P
+    P -- Sí --> Q[validar_predicciones_frutas_nuevas()<br/>transform + predict + métricas]
+    P -- No --> R[Omitir validación]
+    Q --> S[Gráfico validación + frontera<br/>grafico_validacion_con_frontera()]
+    R --> T[Analizar casos extremos<br/>analizar_casos_extremos()]
+    S --> T
+    T --> U[Imprimir Accuracy final]
+    U --> V[Fin]
+```
+
+### Predicción en nuevas frutas y validación
+
+```mermaid
+flowchart TD
+    A[Iniciar módulo de nuevas/validación] --> B{Existe frutas_nuevas.csv?}
+    B -- Sí --> C[Cargar X_nuevas]
+    C --> D[scaler.transform(X_nuevas)]
+    D --> E[model.predict → proba y etiqueta (>0.5)]
+    E --> F[Agregar columnas prediccion y probabilidad]
+    F --> G[Graficar frutas nuevas]
+    B -- No --> H[Informar ausencia y continuar]
+
+    G --> I{Existe frutas_validacion.csv?}
+    H --> I
+    I -- Sí --> J[Cargar X_val, y_real]
+    J --> K[scaler.transform(X_val)]
+    K --> L[model.predict → predicciones]
+    L --> M[Calcular accuracy y matriz de confusión]
+    M --> N[Armar df_comparacion (+ confianza)]
+    N --> O[Graficar validación + frontera]
+    I -- No --> P[Informar ausencia y continuar]
+
+    O --> Q[Analizar casos extremos<br/>puntos sintéticos]
+    P --> Q
+    Q --> R[Fin módulo]
+```
+
 ## Salidas
 
 El programa genera:
